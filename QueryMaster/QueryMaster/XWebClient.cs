@@ -5,6 +5,8 @@ namespace QueryMaster
 {
   class XWebClient : WebClient
   {
+    private const int RequestTimeoutMs = 8000;
+
     public XWebClient()
     {
       this.Proxy = null;
@@ -13,7 +15,9 @@ namespace QueryMaster
     protected override WebRequest GetWebRequest(Uri address)
     {
       var req = base.GetWebRequest(address);
-      req.Timeout = 5000;
+      req.Timeout = RequestTimeoutMs;
+      if (req is HttpWebRequest httpReq)
+        httpReq.ReadWriteTimeout = RequestTimeoutMs;
       return req;
     }
   }

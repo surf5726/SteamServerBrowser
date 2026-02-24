@@ -4,52 +4,26 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Net;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
-using System.Xml.Serialization;
+using System.Xml;
 
 namespace QueryMaster
 {
-  #region WebAPI XML response mappings: class Response, Message
-  public class Message
-  {
-    /// <summary>
-    /// IP:port
-    /// </summary>
-    public string addr { get; set; }
-    public ushort gameport { get; set; }
-    public long steamid { get; set; }
-    public string name { get; set; }
-    public int appid { get; set; }
-    public string gamedir { get; set; }
-    public string version { get; set; }
-    public string product { get; set; }
-    public string region { get; set; }
-    public int players { get; set; }
-    public int max_players { get; set; }
-    public int bots { get; set; }
-    public string map { get; set; }
-    public bool secure { get; set; }
-    public bool dedicated { get; set; }
-    public string os { get; set; }
-    public string gametype { get; set; }
-  }
-
-  [XmlRoot("response")]
-  public class Response
-  {
-    [XmlArray("servers")]
-    [XmlArrayItem("message")]
-    public Message[] Servers;
-  }
-
-  #endregion
-
   /// <summary>
   ///   Provides methods to query master server.
   ///   An instance can only be used for a single request and is automatically disposed when the request completes or times out
   /// </summary>
   public class MasterServerWebApi : MasterServer
   {
+    private const int MaxDownloadAttemptsPerEndpoint = 1;
+    private static readonly string[] ApiUrls =
+    {
+      "https://api.steampowered.com/IGameServersService/GetServerList/v1/",
+      "https://api.steampowered.com/IGameServersService/GetServerList/v0001/"
+    };
+    private static readonly Regex JsonAddrPattern = new Regex("\\\"addr\\\"\\s*:\\s*\\\"(?<addr>[^\\\"]+)\\\"", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex AnyIpPortPattern = new Regex("(?<addr>\\b(?:\\d{1,3}\\.){3}\\d{1,3}:\\d{1,5}\\b)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private readonly string steamWebApiKey = ""; // create an account and get a steam web api key at http://steamcommunity.com/dev/apikey
 
     public MasterServerWebApi(string steamWebApiKey)
@@ -72,48 +46,15 @@ namespace QueryMaster
         {
           using (var cli = new XWebClient())
           {
-            var filters = MasterUtil.ProcessFilter(filter);
-            var url = $"https://api.steampowered.com/IGameServersService/GetServerList/v1/?key={steamWebApiKey}&format=xml&filter={filters}&limit={GetAddressesLimit}";
-            var xml = cli.DownloadString(url);
-            var ser = new XmlSerializer(typeof (Response));
+            var filters = (MasterUtil.ProcessFilter(filter) ?? string.Empty).TrimEnd('\0');
+            var responseText = DownloadServerList(cli, filters, GetAddressesLimit);
 
-            // replace invalid XML chars ( < 32 ) with char reference
-            var sb = new StringBuilder(xml);
-            for (int i = 0, c = xml.Length; i < c; i++)
-            {
-              if (sb[i] < 32 && !char.IsWhiteSpace(sb[i]))
-                //{
-                //  sb.Insert(i+1, "#" + ((int)sb[i]).ToString() + ";");
-                //  sb[i] = '&';
-                //}
-                sb[i] = ' ';
-            }
-            xml = sb.ToString();
+            var parsedAddresses = ParseServerAddresses(responseText);
+            var endpoints = new List<Tuple<IPEndPoint, ServerInfo>>();
+            foreach (var ep in parsedAddresses)
+              endpoints.Add(new Tuple<IPEndPoint, ServerInfo>(ep, null));
 
-            var resp = (Response) ser.Deserialize(new StringReader(xml));
-
-            var endpoints = new List<Tuple<IPEndPoint,ServerInfo>>();
-            if (resp.Servers != null)
-            {
-              foreach (var msg in resp.Servers)
-              {
-                try
-                {
-                  int i = msg.addr.IndexOf(':');
-                  if (i > 0)
-                  {
-                    var info = ConvertToServerInfo(msg);
-                    endpoints.Add(new Tuple<IPEndPoint, ServerInfo>(info.EndPoint, info));
-                  }
-                }
-                catch
-                {
-                  // ignore
-                }
-              }
-            }
-
-            callback(new ReadOnlyCollection<Tuple<IPEndPoint,ServerInfo>>(endpoints), null, false);
+            callback(new ReadOnlyCollection<Tuple<IPEndPoint, ServerInfo>>(endpoints), null, false);
           }
         }
         catch(Exception ex)
@@ -123,28 +64,229 @@ namespace QueryMaster
       });
     }
 
-    private ServerInfo ConvertToServerInfo(Message msg)
+    private string DownloadServerList(XWebClient cli, string filter, int limit)
     {
-      var si = new ServerInfo();
-      si.Address = msg.addr;
-      si.Bots = (byte)msg.bots;
-      si.Description = msg.gametype; // description has no exact match in the XML; msg.product has no match in A2S_INFO
-      si.Directory = msg.gamedir;
-      si.Environment = msg.os == "w" ? "Windows" : msg.os == "l" ? "Linux" : msg.os;
-      si.Extra.GameId = msg.appid;
-      si.Extra.Keywords = msg.gametype;
-      si.Extra.Port = msg.gameport;
-      si.Extra.SteamID = msg.steamid;
-      si.GameVersion = msg.version;
-      si.Id = msg.appid < 0x10000 ? (ushort) msg.appid : (ushort)0;
-      si.IsSecure = msg.secure;
-      si.Map = msg.map;
-      si.MaxPlayers = (byte)msg.max_players;
-      si.Name = msg.name;
-      si.Ping = 0;
-      si.Players = msg.players;
-      si.ServerType = msg.dedicated ? "Dedicated" : "Listen";
-      return si;
+      var encodedKey = Uri.EscapeDataString(steamWebApiKey ?? string.Empty);
+      var encodedFilter = Uri.EscapeDataString(filter ?? string.Empty);
+      Exception lastError = null;
+
+      foreach (var apiUrl in ApiUrls)
+      {
+        var url = string.Format("{0}?key={1}&format=xml&filter={2}&limit={3}", apiUrl, encodedKey, encodedFilter, limit);
+        for (int attempt = 0; attempt < MaxDownloadAttemptsPerEndpoint; attempt++)
+        {
+          try
+          {
+            return cli.DownloadString(url);
+          }
+          catch (WebException ex)
+          {
+            lastError = ex;
+            if (!IsTransient(ex) || attempt >= MaxDownloadAttemptsPerEndpoint - 1)
+              break;
+            Thread.Sleep(300);
+          }
+        }
+      }
+
+      if (lastError != null)
+        throw lastError;
+      throw new InvalidOperationException("Steam Web API request failed.");
+    }
+
+    private static bool IsTransient(WebException ex)
+    {
+      switch (ex.Status)
+      {
+        case WebExceptionStatus.Timeout:
+        case WebExceptionStatus.ConnectFailure:
+        case WebExceptionStatus.ConnectionClosed:
+        case WebExceptionStatus.NameResolutionFailure:
+        case WebExceptionStatus.ReceiveFailure:
+        case WebExceptionStatus.SendFailure:
+        case WebExceptionStatus.KeepAliveFailure:
+        case WebExceptionStatus.PipelineFailure:
+          return true;
+        default:
+          return false;
+      }
+    }
+
+    private static List<IPEndPoint> ParseServerAddresses(string responseText)
+    {
+      var endpoints = ParseXmlAddresses(responseText);
+      if (endpoints.Count == 0)
+        endpoints = ParseJsonAddresses(responseText);
+      if (endpoints.Count == 0)
+        endpoints = ParseLooseAddressMatches(responseText);
+
+      if (endpoints.Count > 0)
+        return endpoints;
+
+      string snippet = responseText ?? "";
+      snippet = snippet.Replace('\r', ' ').Replace('\n', ' ');
+      if (snippet.Length > 220)
+        snippet = snippet.Substring(0, 220);
+      throw new FormatException("Steam Web API response format is not recognized. " + snippet);
+    }
+
+    private static List<IPEndPoint> ParseXmlAddresses(string responseText)
+    {
+      var result = new List<IPEndPoint>();
+      if (string.IsNullOrWhiteSpace(responseText))
+        return result;
+
+      try
+      {
+        var xml = SanitizeXml(responseText);
+        var doc = new XmlDocument();
+        doc.XmlResolver = null;
+
+        var settings = new XmlReaderSettings();
+        settings.DtdProcessing = DtdProcessing.Ignore;
+        settings.XmlResolver = null;
+        using (var sr = new StringReader(xml))
+        using (var xr = XmlReader.Create(sr, settings))
+          doc.Load(xr);
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // Newer/older API variants may provide either <message> or <server> entries.
+        var serverNodes = doc.SelectNodes("//message|//server");
+        if (serverNodes != null)
+        {
+          foreach (XmlNode serverNode in serverNodes)
+          {
+            var addrText = serverNode.SelectSingleNode("addr|address")?.InnerText;
+            var portText = serverNode.SelectSingleNode("gameport|port")?.InnerText;
+
+            IPEndPoint ep;
+            if (!TryParseAddressWithOptionalPort(addrText, portText, out ep))
+              continue;
+
+            if (seen.Add(ep.ToString()))
+              result.Add(ep);
+          }
+        }
+
+        if (result.Count == 0)
+        {
+          var nodes = doc.SelectNodes("//addr|//address");
+          if (nodes != null)
+          {
+            foreach (XmlNode node in nodes)
+            {
+              IPEndPoint ep;
+              if (!TryParseAddress(node.InnerText, out ep))
+                continue;
+
+              if (seen.Add(ep.ToString()))
+                result.Add(ep);
+            }
+          }
+        }
+      }
+      catch
+      {
+        // ignore and fall through to JSON / loose parsing
+      }
+
+      return result;
+    }
+
+    private static List<IPEndPoint> ParseJsonAddresses(string responseText)
+    {
+      var result = new List<IPEndPoint>();
+      if (string.IsNullOrWhiteSpace(responseText))
+        return result;
+
+      var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+      foreach (Match match in JsonAddrPattern.Matches(responseText))
+      {
+        IPEndPoint ep;
+        if (!TryParseAddress(match.Groups["addr"].Value, out ep))
+          continue;
+
+        if (seen.Add(ep.ToString()))
+          result.Add(ep);
+      }
+
+      return result;
+    }
+
+    private static List<IPEndPoint> ParseLooseAddressMatches(string responseText)
+    {
+      var result = new List<IPEndPoint>();
+      if (string.IsNullOrWhiteSpace(responseText))
+        return result;
+
+      var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+      foreach (Match match in AnyIpPortPattern.Matches(responseText))
+      {
+        IPEndPoint ep;
+        if (!TryParseAddress(match.Groups["addr"].Value, out ep))
+          continue;
+
+        if (seen.Add(ep.ToString()))
+          result.Add(ep);
+      }
+
+      return result;
+    }
+
+    private static bool TryParseAddressWithOptionalPort(string address, string portText, out IPEndPoint endpoint)
+    {
+      endpoint = null;
+      if (TryParseAddress(address, out endpoint))
+        return true;
+
+      if (string.IsNullOrWhiteSpace(address))
+        return false;
+
+      int port;
+      if (!int.TryParse((portText ?? "").Trim(), out port) || port <= 0 || port > 65535)
+        return false;
+
+      IPAddress ip;
+      if (!IPAddress.TryParse(address.Trim(), out ip))
+        return false;
+
+      endpoint = new IPEndPoint(ip, port);
+      return true;
+    }
+
+    private static bool TryParseAddress(string address, out IPEndPoint endpoint)
+    {
+      endpoint = null;
+      if (string.IsNullOrWhiteSpace(address))
+        return false;
+
+      var value = address.Trim();
+      int i = value.LastIndexOf(':');
+      if (i <= 0 || i >= value.Length - 1)
+        return false;
+
+      int port;
+      if (!int.TryParse(value.Substring(i + 1), out port) || port <= 0 || port > 65535)
+        return false;
+
+      IPAddress ip;
+      if (!IPAddress.TryParse(value.Substring(0, i), out ip))
+        return false;
+
+      endpoint = new IPEndPoint(ip, port);
+      return true;
+    }
+
+    private static string SanitizeXml(string xml)
+    {
+      var sb = new StringBuilder(xml);
+      for (int i = 0, c = sb.Length; i < c; i++)
+      {
+        if (sb[i] < 32 && !char.IsWhiteSpace(sb[i]))
+          sb[i] = ' ';
+      }
+      return sb.ToString();
     }
   }
 }
