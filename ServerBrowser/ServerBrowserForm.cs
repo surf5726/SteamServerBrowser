@@ -202,7 +202,7 @@ namespace ServerBrowser
       LookAndFeel_StyleChanged(null, null);
       --this.ignoreUiEvents;
 
-      this.ReloadServerList();
+      // Do not auto-refresh on startup; user triggers refresh manually.
     }
     #endregion  
    
