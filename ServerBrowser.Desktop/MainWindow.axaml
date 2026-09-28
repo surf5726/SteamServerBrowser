@@ -1,0 +1,325 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="using:ServerBrowser.Desktop"
+        x:Class="ServerBrowser.Desktop.MainWindow"
+        Icon="/Assets/App.png"
+        Title="Steam Server Browser 2.71 - Linux" Width="1600" Height="840"
+        MinWidth="1080" MinHeight="600" FontFamily="Segoe UI, Noto Sans, DejaVu Sans"
+        FontSize="12" Background="{DynamicResource BrowserBackground}">
+  <Window.Resources>
+    <local:CountryFlagConverter x:Key="CountryFlag" />
+    <local:PlayerTimeConverter x:Key="PlayerTime" />
+  </Window.Resources>
+  <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto,24" Margin="0">
+    <!-- Same command order as ServerBrowserForm.barMenu. -->
+    <Border BorderBrush="{DynamicResource ChromeBorder}" BorderThickness="0,0,0,1" Background="{DynamicResource ChromeBrush}">
+      <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+        <StackPanel Orientation="Horizontal" Spacing="0" Height="28">
+          <Menu>
+            <MenuItem Header="Options">
+              <MenuItem x:Name="GeneralPreferencesMenuItem" Header="General Preferences" Click="TogglePreferences_Click" />
+              <MenuItem Header="Master Server Query/List Edit" Click="ToggleQuery_Click" />
+              <MenuItem x:Name="QuickFilterMenuItem" Header="Quick Filter / Alert" Click="ToggleFilter_Click" />
+              <MenuItem Header="Theme">
+                <MenuItem x:Name="LightThemeItem" Header="Light" ToggleType="Radio" GroupName="AppTheme" Click="LightTheme_Click" />
+                <MenuItem x:Name="DarkThemeItem" Header="Dark" ToggleType="Radio" GroupName="AppTheme" Click="DarkTheme_Click" />
+              </MenuItem>
+              <Separator />
+              <MenuItem x:Name="SettingsMenuItem" Header="GeoIP Service / Steam Web API Key" Click="Settings_Click" />
+              <MenuItem Header="Remote Console" Click="ToggleRcon_Click" />
+              <MenuItem Header="Restore Standard Layout" Click="RestoreLayout_Click" />
+              <Separator />
+              <MenuItem Header="Import Windows INI..." Click="ImportIni_Click" />
+              <MenuItem Header="Export server list..." Click="Export_Click" />
+            </MenuItem>
+          </Menu>
+          <Button Classes="toolbar" ToolTip.Tip="General Preferences" Click="TogglePreferences_Click"><Image Source="/Assets/004.png" Width="16" Height="16" /></Button>
+          <Button Classes="toolbar" ToolTip.Tip="Master Server Query/List Edit" Click="ToggleQuery_Click"><Image Source="/Assets/009.png" Width="16" Height="16" /></Button>
+          <Button Classes="toolbar" ToolTip.Tip="Quick Filter / Alert" Click="ToggleFilter_Click"><Image Source="/Assets/013.png" Width="16" Height="16" /></Button>
+          <Border Classes="separator" />
+          <Menu>
+            <MenuItem Header="Tabs">
+              <MenuItem Header="Rename / Duplicate / Copy to Custom List" Click="TabSettings_Click" />
+              <Separator />
+              <MenuItem Header="New Master Server Query" Click="NewMasterTab_Click" />
+              <MenuItem Header="New Custom Server List" Click="NewCustomTab_Click" />
+              <MenuItem Header="New Favorites Tab" Click="NewFavoritesTab_Click" />
+            </MenuItem>
+            <MenuItem Header="Server List">
+              <MenuItem x:Name="FindMenuItem" Header="Find Servers" Click="Query_Click" />
+              <MenuItem x:Name="UpdateMenuItem" Header="Update Status" Click="Refresh_Click" />
+              <MenuItem x:Name="SelectedUpdateMenuItem" Header="Update selected Servers" Click="RefreshSelected_Click" />
+              <MenuItem x:Name="StopMenuItem" Header="Stop Update" Click="Stop_Click" />
+              <Separator />
+              <MenuItem x:Name="ColumnsMenuItem" Header="Choose Columns..." Click="Columns_Click" />
+              <MenuItem x:Name="AddColumnMenuItem" Header="Add Custom Column..." Click="AddColumn_Click" />
+              <MenuItem x:Name="BestFitAllMenuItem" Header="Best Fit All Columns" Click="BestFitAll_Click" />
+              <MenuItem x:Name="AutoFitMenuItem" Header="Auto-fit Columns on Refresh" ToggleType="CheckBox" Click="AutoFit_Click" />
+            </MenuItem>
+          </Menu>
+          <Button x:Name="QueryToolButton" Classes="toolbar" Click="Query_Click"><StackPanel Orientation="Horizontal" Spacing="4"><Image Source="/Assets/000.png" Width="16" Height="16" /><TextBlock Text="Find Servers" /></StackPanel></Button>
+          <Button x:Name="RefreshToolButton" Classes="toolbar" Click="Refresh_Click"><StackPanel Orientation="Horizontal" Spacing="4"><Grid Width="16" Height="16"><Image Classes="activeGlyph" Source="/Assets/001.png" /><TextBlock Classes="disabledGlyph" Text="↻" FontSize="16" /></Grid><TextBlock Text="Update Status" /></StackPanel></Button>
+          <Button Classes="toolbar" x:Name="StopButton" ToolTip.Tip="Stop Update" Click="Stop_Click" IsEnabled="False"><Grid Width="16" Height="16"><Image Classes="activeGlyph" Source="/Assets/023.png" /><TextBlock Classes="disabledGlyph" Text="■" FontSize="15" /></Grid></Button>
+          <Border Classes="separator" />
+          <Menu>
+            <MenuItem Header="Server">
+              <MenuItem Header="Connect" Click="Connect_Click" />
+              <MenuItem Header="Connect as Spectator" Click="Spectate_Click" />
+              <Separator />
+              <MenuItem Header="Copy Addresses to Clipboard" Click="Copy_Click" />
+              <MenuItem Header="Copy steam://... URL to Clipboard" Click="CopySteam_Click" />
+              <MenuItem Header="Paste Addresses from Clipboard" Click="PasteAddresses_Click" />
+              <MenuItem Header="Add Addresses / URL..." Click="AddAddresses_Click" />
+              <Separator />
+              <MenuItem Header="Add to Favorites" Click="AddFavorite_Click" />
+              <MenuItem Header="Remove from Favorites" Click="Unfavorite_Click" />
+              <MenuItem Header="Remove from List" Click="Remove_Click" />
+            </MenuItem>
+          </Menu>
+          <Button Classes="toolbar" Click="Connect_Click"><StackPanel Orientation="Horizontal" Spacing="4"><Image Source="/Assets/007.png" Width="16" Height="16" /><TextBlock Text="Connect" /></StackPanel></Button>
+          <Border Classes="separator" />
+          <TextBlock Text="Find Buddy:" VerticalAlignment="Center" Margin="5,0" />
+          <TextBox x:Name="PlayerSearchBox" Width="125" Margin="0,3,6,3" ToolTip.Tip="Player name; queries player lists on the next refresh" />
+          <Menu><MenuItem Header="About"><MenuItem Header="Steam Server Browser 2.71 · Linux port" /><MenuItem Header="Linux port notes" Click="About_Click" /></MenuItem></Menu>
+        </StackPanel>
+      </ScrollViewer>
+    </Border>
+
+    <!-- Original panelOptions: a compact always-visible preferences panel. -->
+    <Border Grid.Row="1" x:Name="PreferencesPanel" BorderBrush="{DynamicResource ChromeBorder}" BorderThickness="1" Margin="3,3,3,0">
+      <StackPanel>
+        <Border Classes="dockHeader"><TextBlock Text="Options" /></Border>
+        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+          <Canvas Height="101" MinWidth="1280" Background="{DynamicResource ChromeBrush}">
+            <TextBlock Canvas.Left="13" Canvas.Top="12" Text="Auto-Update:" />
+            <NumericUpDown x:Name="AutoMinutesBox" Canvas.Left="117" Canvas.Top="8" Width="64" Height="23" ShowButtonSpinner="False" Minimum="0.25" Maximum="60" Increment="0.25" Value="2" FormatString="0.##" ValueChanged="Preferences_Changed" />
+            <TextBlock Canvas.Left="186" Canvas.Top="12" Text="minutes" />
+            <RadioButton x:Name="AutoDiscoverBox" Canvas.Left="13" Canvas.Top="33" Content="Find Servers + Update Status" GroupName="AutoUpdate" IsCheckedChanged="Preferences_Changed" />
+            <RadioButton x:Name="AutoStatusBox" Canvas.Left="13" Canvas.Top="53" Content="Update Status only" GroupName="AutoUpdate" IsCheckedChanged="Preferences_Changed" />
+            <RadioButton x:Name="AutoOffBox" Canvas.Left="13" Canvas.Top="73" Content="Off" GroupName="AutoUpdate" IsChecked="True" IsCheckedChanged="Preferences_Changed" />
+            <CheckBox x:Name="PauseInGameBox" Canvas.Left="117" Canvas.Top="73" Content="off while in-game" IsCheckedChanged="Preferences_Changed" />
+            <CheckBox x:Name="RefreshSelectedBox" Canvas.Left="327" Canvas.Top="12" Content="Update status when selecting a server" IsChecked="True" IsCheckedChanged="Preferences_Changed" />
+            <CheckBox x:Name="FavoritesOnTopBox" Canvas.Left="327" Canvas.Top="32" Content="Keep my favorite servers on top" IsChecked="True" IsCheckedChanged="Preferences_Changed" />
+            <CheckBox x:Name="HideOfflineBox" Canvas.Left="327" Canvas.Top="52" Content="Hide timed out servers" IsChecked="True" IsCheckedChanged="Filter_Changed" />
+            <CheckBox Canvas.Left="327" Canvas.Top="72" Content="Use Steam API to detect in-game status" IsEnabled="False" ToolTip.Tip="Steamworks IPC is not available in this Linux port. The in-game pause option detects Steam game processes instead." />
+            <TextBlock Canvas.Left="639" Canvas.Top="12" Text="Server Address:" />
+            <RadioButton x:Name="AddressHiddenBox" Canvas.Left="639" Canvas.Top="31" Content="Don't show" GroupName="AddressMode" IsCheckedChanged="Preferences_Changed" />
+            <RadioButton x:Name="AddressQueryBox" Canvas.Left="639" Canvas.Top="51" Content="Query Port" GroupName="AddressMode" IsChecked="True" IsCheckedChanged="Preferences_Changed" />
+            <RadioButton x:Name="AddressGameBox" Canvas.Left="639" Canvas.Top="71" Content="Game Port" GroupName="AddressMode" IsCheckedChanged="Preferences_Changed" />
+            <CheckBox x:Name="ShowFilterInfoBox" Canvas.Left="796" Canvas.Top="12" Content="Show filter panel information text" IsChecked="True" IsCheckedChanged="Preferences_Changed" />
+            <CheckBox x:Name="ShowCountsBox" Canvas.Left="796" Canvas.Top="32" Content="Show counts in the list footer" IsChecked="True" IsCheckedChanged="Preferences_Changed" />
+            <CheckBox x:Name="DoubleClickBox" Canvas.Left="796" Canvas.Top="52" Content="Use double-click to connect to a game server" IsChecked="True" IsCheckedChanged="Preferences_Changed" />
+            <CheckBox x:Name="HideGhostsBox" Canvas.Left="796" Canvas.Top="72" Content="Hide ghost players" IsCheckedChanged="Preferences_Changed" />
+            <Button Canvas.Left="1160" Canvas.Top="8" Width="115" Content="Change Skin" Click="Skin_Click" />
+          </Canvas>
+        </ScrollViewer>
+      </StackPanel>
+    </Border>
+
+    <Border Grid.Row="2" Margin="3,0" BorderBrush="{DynamicResource ChromeBorder}" BorderThickness="1,0,1,1" Background="{DynamicResource ChromeBrush}">
+      <Grid ColumnDefinitions="*,28">
+        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+          <TabControl x:Name="Tabs" SelectionChanged="Tab_Changed" Classes="gameTabs">
+            <TabControl.ItemTemplate><DataTemplate>
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                <Button Classes="tabClose" Content="×" Width="17" Height="17" MinWidth="0" MinHeight="0" Padding="0"
+                        FontSize="14" Focusable="False" ToolTip.Tip="Close tab" Click="CloseTab_Click" />
+              </StackPanel>
+            </DataTemplate></TabControl.ItemTemplate>
+            <TabControl.ContentTemplate><DataTemplate><Border Height="0" /></DataTemplate></TabControl.ContentTemplate>
+          </TabControl>
+        </ScrollViewer>
+        <Button Grid.Column="1" Content="+" Classes="toolbar" Click="NewTab_Click" ToolTip.Tip="Add tab" />
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="3" x:Name="QueryPanel" BorderBrush="{DynamicResource ChromeBorder}" BorderThickness="1" Margin="3,0,3,3" Background="{DynamicResource ChromeBrush}">
+      <Grid>
+        <ScrollViewer x:Name="MasterQueryPanel" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+          <Canvas Height="66" MinWidth="1280">
+            <TextBlock Canvas.Left="29" Canvas.Top="12" Text="Master server:" />
+            <AutoCompleteBox x:Name="MasterBox" Canvas.Left="117" Canvas.Top="7" Width="268" FilterMode="None" MinimumPrefixLength="0" SelectionChanged="Master_Changed" />
+            <TextBlock Canvas.Left="77" Canvas.Top="41" Text="Game:" />
+            <Grid Canvas.Left="117" Canvas.Top="36" Width="268" ColumnDefinitions="*,21">
+              <AutoCompleteBox x:Name="GameBox" MinimumPrefixLength="0" FilterMode="None" IsTextCompletionEnabled="False"
+                               Watermark="Select a game or enter an App ID" ToolTip.Tip="Select a game or type a custom Steam App ID" />
+              <Button Grid.Column="1" x:Name="GameDropDownButton" Content="▾" Padding="0" MinHeight="22" Focusable="False" Click="GameDropDown_Click" />
+            </Grid>
+            <TextBlock Canvas.Left="401" Canvas.Top="12" Text="Mod:" />
+            <TextBox x:Name="ModBox" Canvas.Left="436" Canvas.Top="7" Width="178" />
+            <TextBlock Canvas.Left="401" Canvas.Top="41" Text="Map:" />
+            <TextBox x:Name="MapBox" Canvas.Left="436" Canvas.Top="36" Width="178" />
+            <TextBlock Canvas.Left="640" Canvas.Top="12" Text="Include Tags:" />
+            <TextBox x:Name="MasterIncludeTagsBox" Canvas.Left="716" Canvas.Top="7" Width="133" />
+            <TextBlock Canvas.Left="640" Canvas.Top="41" Text="Exclude Tags:" />
+            <TextBox x:Name="MasterExcludeTagsBox" Canvas.Left="716" Canvas.Top="36" Width="133" />
+            <CheckBox x:Name="GetEmptyBox" Canvas.Left="871" Canvas.Top="9" Content="Get empty servers" IsChecked="True" />
+            <CheckBox x:Name="GetFullBox" Canvas.Left="871" Canvas.Top="38" Content="Get full servers" IsChecked="True" />
+            <TextBlock Canvas.Left="1010" Canvas.Top="12" Text="Limit Results:" />
+            <TextBox x:Name="LimitBox" Canvas.Left="1086" Canvas.Top="7" Width="66" />
+            <TextBlock Canvas.Left="1010" Canvas.Top="41" Text="Country:" />
+            <Grid Canvas.Left="1074" Canvas.Top="36" Width="78" ColumnDefinitions="*,20">
+              <TextBox x:Name="CountriesBox" ToolTip.Tip="Country codes, e.g. CN,JP,US" />
+              <Button Grid.Column="1" Content="▾" Padding="0" Click="Countries_Click" />
+            </Grid>
+            <Button x:Name="QueryButton" Canvas.Left="1160" Canvas.Top="6" Width="115" Content="Find Servers" Click="Query_Click" />
+            <Button x:Name="RefreshButton" Canvas.Left="1160" Canvas.Top="35" Width="115" Content="Update Status" Click="Refresh_Click" HotKey="F5" />
+            <TextBlock x:Name="MasterFilterInfo" Canvas.Left="1292" Canvas.Top="8" Width="285" TextWrapping="Wrap" Opacity="0.8"
+                       Text="These are server-side filters, applied by the master server. The browser only receives servers matching these criteria." />
+            <!-- Kept as state controls for region/API selection; edited in Options. -->
+            <ComboBox x:Name="SourceBox" IsVisible="False" SelectedIndex="0"><ComboBoxItem Content="UDP" /><ComboBoxItem Content="Steam Web API" /></ComboBox>
+            <ComboBox x:Name="RegionBox" IsVisible="False" SelectedIndex="0"><ComboBoxItem Content="World" /><ComboBoxItem Content="Asia" /><ComboBoxItem Content="Europe" /><ComboBoxItem Content="US East" /><ComboBoxItem Content="US West" /><ComboBoxItem Content="South America" /><ComboBoxItem Content="Australia" /><ComboBoxItem Content="Middle East" /><ComboBoxItem Content="Africa" /></ComboBox>
+            <TextBox x:Name="VersionBox" IsVisible="False" />
+            <CheckBox x:Name="HideEmptyBox" IsVisible="False" />
+            <CheckBox x:Name="HideFullBox" IsVisible="False" />
+            <CheckBox x:Name="SecureOnlyBox" IsVisible="False" />
+          </Canvas>
+        </ScrollViewer>
+        <Canvas x:Name="StaticListPanel" Height="66" IsVisible="False">
+          <TextBlock Canvas.Left="17" Canvas.Top="12" Text="Add Game Server:" />
+          <TextBox x:Name="AddAddressBox" Canvas.Left="117" Canvas.Top="8" Width="268" Watermark="ip:queryport" KeyDown="AddAddress_KeyDown" />
+          <Button Canvas.Left="401" Canvas.Top="6" Width="213" Content="Paste Servers from Clipboard" Click="PasteAddresses_Click" />
+          <Button Canvas.Left="632" Canvas.Top="6" Content="Add Addresses / URL..." Click="AddAddresses_Click" />
+          <Button x:Name="StaticRefreshButton" Canvas.Left="815" Canvas.Top="6" Content="Update Status" Click="Refresh_Click" />
+          <TextBlock Canvas.Left="17" Canvas.Top="40" Text="You can copy server addresses (ip:port) from other tabs or any text editor. Press Enter to add an address." />
+        </Canvas>
+      </Grid>
+    </Border>
+
+    <!-- Original dock arrangement: server list fills the left; details dock right. -->
+    <Grid Grid.Row="4" ColumnDefinitions="*,5,350" Margin="3,0,3,0" x:Name="ContentGrid">
+      <Border BorderBrush="{DynamicResource ChromeBorder}" BorderThickness="1">
+        <Grid RowDefinitions="23,Auto,*,22">
+          <Border Classes="dockHeader"><TextBlock Text="Servers" /></Border>
+          <Border Grid.Row="1" x:Name="QuickFilterPanel" Background="{DynamicResource ChromeBrush}" BorderBrush="{DynamicResource ChromeBorder}" BorderThickness="0,0,0,1">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+              <Canvas Height="66" MinWidth="968">
+                <TextBlock Canvas.Left="10" Canvas.Top="11" Text="Name:" />
+                <TextBox x:Name="SearchBox" Canvas.Left="55" Canvas.Top="6" Width="268" TextChanged="Filter_Changed" />
+                <Button Canvas.Left="333" Canvas.Top="3" Content="filter editor" Classes="link" Click="AdvancedFilter_Click" />
+                <TextBlock Canvas.Left="10" Canvas.Top="40" Text="Min. Player Count:" />
+                <TextBox x:Name="MinPlayersBox" Canvas.Left="114" Canvas.Top="35" Width="59" />
+                <CheckBox x:Name="IncludeBotsBox" Canvas.Left="179" Canvas.Top="36" Content="incl. Bots" />
+                <TextBlock Canvas.Left="267" Canvas.Top="40" Text="Ping &lt;" />
+                <TextBox x:Name="MaxPingBox" Canvas.Left="323" Canvas.Top="35" Width="59" />
+                <TextBlock Canvas.Left="431" Canvas.Top="11" Text="Include Tags:" />
+                <TextBox x:Name="IncludeTagsBox" Canvas.Left="517" Canvas.Top="7" Width="328" />
+                <TextBlock Canvas.Left="431" Canvas.Top="40" Text="Exclude Tags:" />
+                <TextBox x:Name="ExcludeTagsBox" Canvas.Left="517" Canvas.Top="35" Width="328" />
+                <Button Canvas.Left="867" Canvas.Top="6" Width="98" Content="Apply Filter" Click="ApplyFilter_Click" />
+                <CheckBox x:Name="AlarmBox" Canvas.Left="867" Canvas.Top="36" Content="Notify me" />
+                <TextBlock x:Name="ClientFilterInfo" Canvas.Left="980" Canvas.Top="8" Width="245" Opacity="0.8" TextWrapping="Wrap" Text="These are client-side filters, applied by your Browser. They further filter the server list." />
+              </Canvas>
+            </ScrollViewer>
+          </Border>
+          <DataGrid Grid.Row="2" x:Name="ServersGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserSortColumns="True"
+                    CanUserResizeColumns="True" CanUserReorderColumns="True" SelectionMode="Extended" HorizontalScrollBarVisibility="Auto"
+                    SelectionChanged="Server_Changed" Tapped="Server_Tapped" DoubleTapped="Server_DoubleTapped" RowHeight="20">
+            <DataGrid.ContextMenu>
+              <ContextMenu>
+                <MenuItem Header="Connect" Click="Connect_Click" /><MenuItem Header="Connect as Spectator" Click="Spectate_Click" />
+                <MenuItem x:Name="SelectedUpdateContextItem" Header="Update selected Servers" Click="RefreshSelected_Click" /><Separator />
+                <MenuItem Header="Copy Addresses to Clipboard" Click="Copy_Click" /><MenuItem Header="Copy steam://... URL to Clipboard" Click="CopySteam_Click" />
+                <MenuItem Header="Add to Favorites" Click="AddFavorite_Click" /><MenuItem Header="Remove from Favorites" Click="Unfavorite_Click" />
+                <MenuItem Header="Remove from List" Click="Remove_Click" />
+                <Separator />
+                <MenuItem Header="Choose Columns..." Click="Columns_Click" />
+                <MenuItem Header="Add Custom Column..." Click="AddColumn_Click" />
+              </ContextMenu>
+            </DataGrid.ContextMenu>
+            <DataGrid.Columns>
+              <DataGridTemplateColumn Header="★" Width="28" CanUserSort="False"><DataGridTemplateColumn.CellTemplate><DataTemplate>
+                <Image Source="/Assets/003.png" Width="16" Height="16" IsVisible="{Binding Favorite}" />
+              </DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+              <DataGridTextColumn Header="Bdy" Binding="{Binding BuddyCount}" Width="36" IsVisible="False" />
+              <DataGridTemplateColumn Header="Location" Width="94" SortMemberPath="Country">
+                <DataGridTemplateColumn.CellTemplate><DataTemplate>
+                  <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" ToolTip.Tip="{Binding Country}">
+                    <Image Classes="countryFlag" Source="{Binding Country, Converter={StaticResource CountryFlag}}" Width="16" Height="16" />
+                    <TextBlock Text="{Binding Country}" VerticalAlignment="Center" />
+                  </StackPanel>
+                </DataTemplate></DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTextColumn Header="Address" Binding="{Binding DisplayAddress}" Width="138"  />
+              <DataGridTextColumn Header="De" Binding="{Binding Dedicated}" Width="28" CanUserSort="False" />
+              <DataGridTextColumn Header="Pr" Binding="{Binding Locked}" Width="28" CanUserSort="False" />
+              <DataGridTextColumn Header="Jn" Binding="{Binding JoinState}" Width="28" CanUserSort="False" />
+              <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" MinWidth="240" SortMemberPath="Name" />
+              <DataGridTextColumn Header="Description" Binding="{Binding Game}" Width="120"  />
+              <DataGridTextColumn Header="Tags" Binding="{Binding Tags}" Width="100"  />
+              <DataGridTextColumn Header="Players" Binding="{Binding Population}" SortMemberPath="PlayerCount" Width="86"  />
+              <DataGridTextColumn Header="Humans" Binding="{Binding HumanPlayers}" Width="60" IsVisible="False" />
+              <DataGridTextColumn Header="Bots" Binding="{Binding Bots}" Width="60"  />
+              <DataGridTextColumn Header="Total" Binding="{Binding PlayerCount}" Width="45" IsVisible="False" />
+              <DataGridTextColumn Header="Max" Binding="{Binding MaxPlayers}" Width="42" IsVisible="False" />
+              <DataGridTextColumn Header="Map" Binding="{Binding Map}" Width="130"  />
+              <DataGridTextColumn Header="Ping" Binding="{Binding Ping}" Width="67"  />
+              <DataGridTextColumn Header="Status" Binding="{Binding State}" Width="80" IsVisible="False" />
+            </DataGrid.Columns>
+          </DataGrid>
+          <Border Grid.Row="3" Background="{DynamicResource ChromeBrush}" BorderBrush="{DynamicResource ChromeBorder}" BorderThickness="0,1,0,0">
+            <TextBlock x:Name="CountText" Text="0 servers" Margin="6,2" />
+          </Border>
+        </Grid>
+      </Border>
+      <GridSplitter Grid.Column="1" ResizeDirection="Columns" HorizontalAlignment="Stretch" Background="{DynamicResource ChromeBrush}" />
+      <Border Grid.Column="2" BorderBrush="{DynamicResource ChromeBorder}" BorderThickness="1">
+        <Grid RowDefinitions="23,*">
+          <Border Classes="dockHeader"><TextBlock x:Name="DetailTitle" Text="Players" /></Border>
+          <TabControl Grid.Row="1" x:Name="DetailsTabs" TabStripPlacement="Bottom" SelectionChanged="DetailsTab_Changed">
+            <TabItem Header="Players"><Grid RowDefinitions="Auto,*">
+              <TextBlock x:Name="PlayersStatus" Text="Select a server to view players." Margin="5" TextWrapping="Wrap" />
+              <DataGrid Grid.Row="1" x:Name="PlayersGrid" AutoGenerateColumns="False" IsReadOnly="True" HorizontalScrollBarVisibility="Auto" CanUserResizeColumns="True" CanUserSortColumns="True">
+                <DataGrid.ContextMenu><ContextMenu>
+                  <MenuItem Header="Best Fit All Columns" Click="PlayerBestFitAll_Click" />
+                </ContextMenu></DataGrid.ContextMenu>
+                <DataGrid.Columns>
+              <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" />
+              <DataGridTextColumn Header="Score" Binding="{Binding Score}" Width="72" />
+              <DataGridTextColumn Header="Time" Binding="{Binding Time, Mode=OneWay, Converter={StaticResource PlayerTime}}" SortMemberPath="Time" Width="85" />
+            </DataGrid.Columns></DataGrid></Grid></TabItem>
+            <TabItem Header="Server Details"><Grid>
+              <DataGrid x:Name="DetailItemsGrid" AutoGenerateColumns="False" IsReadOnly="True">
+                <DataGrid.ContextMenu><ContextMenu><MenuItem Header="Add as column to server list..." Click="AddDetailColumn_Click" /></ContextMenu></DataGrid.ContextMenu>
+                <DataGrid.Columns>
+                <DataGridTextColumn Header="Setting" Binding="{Binding Key}" Width="120" /><DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="*" />
+              </DataGrid.Columns></DataGrid>
+              <TextBox x:Name="DetailsBox" IsVisible="False" />
+            </Grid></TabItem>
+            <TabItem Header="Rules"><Grid RowDefinitions="Auto,*">
+              <TextBlock x:Name="RulesStatus" Text="Select a server to view rules." Margin="5" TextWrapping="Wrap" />
+              <DataGrid Grid.Row="1" x:Name="RulesGrid" AutoGenerateColumns="False" IsReadOnly="True">
+              <DataGrid.ContextMenu><ContextMenu>
+                <MenuItem Header="Add as text column..." Click="AddRuleTextColumn_Click" />
+                <MenuItem Header="Add as numeric column..." Click="AddRuleNumberColumn_Click" />
+              </ContextMenu></DataGrid.ContextMenu>
+              <DataGrid.Columns>
+              <DataGridTextColumn Header="Setting" Binding="{Binding Name}" Width="*" />
+              <DataGridTextColumn Header="Value" Binding="{Binding Value}" Width="*" />
+            </DataGrid.Columns></DataGrid></Grid></TabItem>
+          </TabControl>
+        </Grid>
+      </Border>
+    </Grid>
+
+    <Border Grid.Row="5" x:Name="RconPanel" IsVisible="False" Height="145" Margin="3" BorderBrush="{DynamicResource ChromeBorder}" BorderThickness="1">
+      <Grid RowDefinitions="23,Auto,*">
+        <Border Classes="dockHeader"><TextBlock Text="Remote Console" /></Border>
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,85,Auto,145,Auto,*,Auto" Margin="5" ColumnSpacing="8">
+          <TextBlock Text="Port:" VerticalAlignment="Center" /><TextBox Grid.Column="1" x:Name="RconPortBox" />
+          <TextBlock Grid.Column="2" Text="Password:" VerticalAlignment="Center" /><TextBox Grid.Column="3" x:Name="RconPasswordBox" PasswordChar="●" />
+          <TextBlock Grid.Column="4" Text="Command:" VerticalAlignment="Center" /><TextBox Grid.Column="5" x:Name="RconCommandBox" KeyDown="Rcon_KeyDown" />
+          <Button Grid.Column="6" x:Name="RconButton" Content="Send" Click="Rcon_Click" />
+        </Grid>
+        <TextBox Grid.Row="2" x:Name="RconOutputBox" AcceptsReturn="True" IsReadOnly="True" TextWrapping="Wrap" />
+      </Grid>
+    </Border>
+    <Border Grid.Row="6" Background="{DynamicResource ChromeBrush}" BorderBrush="{DynamicResource ChromeBorder}" BorderThickness="0,1,0,0">
+      <Grid ColumnDefinitions="*,140">
+        <TextBlock x:Name="StatusText" Text="Ready" Margin="8,3" TextTrimming="CharacterEllipsis" />
+        <ProgressBar Grid.Column="1" x:Name="Progress" Height="12" Minimum="0" Maximum="100" Margin="5" />
+      </Grid>
+    </Border>
+  </Grid>
+</Window>

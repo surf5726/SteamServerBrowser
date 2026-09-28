@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../QueryMaster/QueryMaster.csproj" />
+    <PackageReference Include="MaxMind.Db" Version="4.1.0" />
+  </ItemGroup>
+</Project>

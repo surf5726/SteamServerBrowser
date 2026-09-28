@@ -1,0 +1,130 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="ServerBrowser.Desktop.App" RequestedThemeVariant="Dark">
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="BrowserBackground">#414141</SolidColorBrush>
+          <SolidColorBrush x:Key="ChromeBrush">#454545</SolidColorBrush>
+          <SolidColorBrush x:Key="ChromeBorder">#777777</SolidColorBrush>
+          <SolidColorBrush x:Key="ChromeText">#F0F0F0</SolidColorBrush>
+          <SolidColorBrush x:Key="GridBackground">#303030</SolidColorBrush>
+          <SolidColorBrush x:Key="GridText">#EEEEEE</SolidColorBrush>
+          <SolidColorBrush x:Key="GridLine">#505050</SolidColorBrush>
+          <LinearGradientBrush x:Key="HeaderBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Color="#747474" Offset="0" /><GradientStop Color="#505050" Offset="1" />
+          </LinearGradientBrush>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="BrowserBackground">#D6D6D6</SolidColorBrush>
+          <SolidColorBrush x:Key="ChromeBrush">#E5E5E5</SolidColorBrush>
+          <SolidColorBrush x:Key="ChromeBorder">#A0A0A0</SolidColorBrush>
+          <SolidColorBrush x:Key="ChromeText">#202020</SolidColorBrush>
+          <SolidColorBrush x:Key="GridBackground">#FFFFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="GridText">#202020</SolidColorBrush>
+          <SolidColorBrush x:Key="GridLine">#D0D0D0</SolidColorBrush>
+          <LinearGradientBrush x:Key="HeaderBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Color="#F6F6F6" Offset="0" /><GradientStop Color="#D1D1D1" Offset="1" />
+          </LinearGradientBrush>
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+      <ControlTheme x:Key="DataGridCellTextBlockTheme" TargetType="TextBlock">
+        <Setter Property="Margin" Value="4,0" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="TextWrapping" Value="NoWrap" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+      </ControlTheme>
+    </ResourceDictionary>
+  </Application.Resources>
+  <Application.Styles>
+    <FluentTheme />
+    <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
+    <Style Selector="Window"><Setter Property="Foreground" Value="{DynamicResource ChromeText}" /><Setter Property="FontSize" Value="12" /></Style>
+    <Style Selector="TextBlock"><Setter Property="FontSize" Value="12" /></Style>
+    <Style Selector="ContentPresenter"><Setter Property="FontSize" Value="12" /></Style>
+    <Style Selector="Button">
+      <Setter Property="MinHeight" Value="24" /><Setter Property="Padding" Value="8,2" />
+      <Setter Property="FontSize" Value="12" /><Setter Property="CornerRadius" Value="2" />
+      <Setter Property="Background" Value="{DynamicResource HeaderBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ChromeBorder}" /><Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Foreground" Value="{DynamicResource ChromeText}" />
+    </Style>
+    <Style Selector="Button.toolbar"><Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /><Setter Property="Padding" Value="6,2" /><Setter Property="MinHeight" Value="24" /></Style>
+    <Style Selector="Button:disabled"><Setter Property="Opacity" Value="0.5" /><Setter Property="Foreground" Value="#999999" /></Style>
+    <Style Selector="TextBlock.disabledGlyph"><Setter Property="IsVisible" Value="False" /><Setter Property="Foreground" Value="#999999" /></Style>
+    <Style Selector="Button:disabled Image.activeGlyph"><Setter Property="IsVisible" Value="False" /></Style>
+    <Style Selector="Button:disabled TextBlock.disabledGlyph"><Setter Property="IsVisible" Value="True" /></Style>
+    <Style Selector="Button.tabClose"><Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /></Style>
+    <Style Selector="Button.tabClose:pointerover"><Setter Property="Background" Value="#B74949" /><Setter Property="Foreground" Value="White" /></Style>
+    <Style Selector="Button.link"><Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /><Setter Property="Foreground" Value="#80B9F7" /><Setter Property="Padding" Value="2,2" /></Style>
+    <Style Selector="TextBox">
+      <Setter Property="MinHeight" Value="22" /><Setter Property="Padding" Value="3,1" />
+      <Setter Property="FontSize" Value="12" /><Setter Property="CornerRadius" Value="0" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Background" Value="{DynamicResource GridBackground}" /><Setter Property="Foreground" Value="{DynamicResource GridText}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ChromeBorder}" /><Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="ComboBox"><Setter Property="MinHeight" Value="22" /><Setter Property="Padding" Value="4,1" /><Setter Property="FontSize" Value="12" /><Setter Property="CornerRadius" Value="0" /></Style>
+    <Style Selector="AutoCompleteBox"><Setter Property="MinHeight" Value="22" /><Setter Property="FontSize" Value="12" /></Style>
+    <Style Selector="NumericUpDown"><Setter Property="MinHeight" Value="22" /><Setter Property="FontSize" Value="12" /></Style>
+    <Style Selector="CheckBox"><Setter Property="MinHeight" Value="19" /><Setter Property="Padding" Value="3,0" /><Setter Property="FontSize" Value="12" /></Style>
+    <Style Selector="RadioButton"><Setter Property="MinHeight" Value="19" /><Setter Property="Padding" Value="3,0" /><Setter Property="FontSize" Value="12" /></Style>
+    <Style Selector="CheckBox">
+      <Setter Property="Template"><ControlTemplate>
+        <Grid ColumnDefinitions="16,*" VerticalAlignment="Center">
+          <Border Width="13" Height="13" Background="#E0E0E0" BorderBrush="#999999" BorderThickness="1" VerticalAlignment="Center">
+            <Path Name="CheckMark" Data="M 1,5 L 4,8 L 10,1" Stroke="#222222" StrokeThickness="1.6" IsVisible="False" />
+          </Border>
+          <ContentPresenter Grid.Column="1" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" VerticalContentAlignment="Center" Margin="3,0,0,0" />
+        </Grid>
+      </ControlTemplate></Setter>
+    </Style>
+    <Style Selector="CheckBox:checked /template/ Path#CheckMark"><Setter Property="IsVisible" Value="True" /></Style>
+    <Style Selector="RadioButton">
+      <Setter Property="Template"><ControlTemplate>
+        <Grid ColumnDefinitions="16,*" VerticalAlignment="Center">
+          <Grid Width="13" Height="13" VerticalAlignment="Center">
+            <Ellipse Fill="#E0E0E0" Stroke="#999999" StrokeThickness="1" />
+            <Ellipse Name="RadioMark" Width="7" Height="7" Fill="#333333" IsVisible="False" />
+          </Grid>
+          <ContentPresenter Grid.Column="1" Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" VerticalContentAlignment="Center" Margin="3,0,0,0" />
+        </Grid>
+      </ControlTemplate></Setter>
+    </Style>
+    <Style Selector="RadioButton:checked /template/ Ellipse#RadioMark"><Setter Property="IsVisible" Value="True" /></Style>
+    <Style Selector="Menu"><Setter Property="Background" Value="Transparent" /><Setter Property="FontSize" Value="12" /></Style>
+    <Style Selector="MenuItem"><Setter Property="Padding" Value="6,3" /><Setter Property="MinHeight" Value="24" /></Style>
+    <Style Selector="Border.separator"><Setter Property="Width" Value="1" /><Setter Property="Margin" Value="4,4" /><Setter Property="Background" Value="{DynamicResource ChromeBorder}" /></Style>
+    <Style Selector="Border.dockHeader"><Setter Property="Height" Value="23" /><Setter Property="Padding" Value="6,3" /><Setter Property="Background" Value="{DynamicResource HeaderBrush}" /></Style>
+    <Style Selector="TabItem">
+      <Setter Property="FontSize" Value="12" /><Setter Property="MinHeight" Value="25" /><Setter Property="Padding" Value="11,4" />
+      <Setter Property="Background" Value="{DynamicResource ChromeBrush}" />
+      <Setter Property="Template">
+        <ControlTemplate><Border Background="{TemplateBinding Background}" BorderBrush="{DynamicResource ChromeBorder}" BorderThickness="1,1,1,0" Padding="{TemplateBinding Padding}">
+          <ContentPresenter Content="{TemplateBinding Header}" ContentTemplate="{TemplateBinding HeaderTemplate}" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+        </Border></ControlTemplate>
+      </Setter>
+    </Style>
+    <Style Selector="TabItem:selected"><Setter Property="Background" Value="{DynamicResource HeaderBrush}" /><Setter Property="FontWeight" Value="SemiBold" /></Style>
+    <Style Selector="DataGrid">
+      <Setter Property="FontSize" Value="12" /><Setter Property="RowHeight" Value="20" />
+      <Setter Property="GridLinesVisibility" Value="All" /><Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Background" Value="{DynamicResource GridBackground}" /><Setter Property="Foreground" Value="{DynamicResource GridText}" />
+      <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource GridLine}" /><Setter Property="VerticalGridLinesBrush" Value="{DynamicResource GridLine}" />
+    </Style>
+    <Style Selector="DataGridColumnHeader">
+      <Setter Property="FontSize" Value="12" /><Setter Property="Padding" Value="4,3" /><Setter Property="MinHeight" Value="24" />
+      <Setter Property="Background" Value="{DynamicResource HeaderBrush}" /><Setter Property="Foreground" Value="{DynamicResource ChromeText}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ChromeBorder}" /><Setter Property="BorderThickness" Value="0,0,1,1" />
+    </Style>
+    <Style Selector="DataGridCell">
+      <Setter Property="Padding" Value="3,1" /><Setter Property="FontSize" Value="12" />
+      <Setter Property="MinHeight" Value="0" /><Setter Property="ClipToBounds" Value="True" />
+    </Style>
+    <Style Selector="DataGridColumnHeader"><Setter Property="ClipToBounds" Value="True" /></Style>
+    <Style Selector="DataGrid /template/ ScrollBar#PART_HorizontalScrollbar">
+      <Setter Property="AllowAutoHide" Value="False" />
+    </Style>
+  </Application.Styles>
+</Application>
