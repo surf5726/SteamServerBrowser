@@ -34,6 +34,7 @@ public partial class MainWindow
     {
         if (lifetime.IsCancellationRequested || loading || changingColumns) return;
         if (active is not { } tab || ServersGrid.SelectedItem is not ServerEntry row) { ClearDetails(); return; }
+        if (!CountryQueryPlan.Matches(row.Country, tab.Countries)) { ClearDetails(); return; }
         bool sameServer = ReferenceEquals(tab, detailTab) && row.Address == detailAddress;
         FillDetailRows(row, displayedDetails?.Warning ?? "");
         if (sameServer && !force)

@@ -227,33 +227,52 @@ public partial class MainWindow
     }
     private async void RefreshSelected_Click(object? sender, RoutedEventArgs e)
     {
-        if (busy || active is null) return;
+        if (busy || active is null || !CaptureInputs()) return;
         var selected = ServersGrid.SelectedItems.Cast<ServerEntry>().ToList();
         if (selected.Count == 0) return;
         var tab = active;
+        string countries = tab.Countries, geoIpPath = settings.GeoIpPath;
+        int appId = tab.AppId, timeoutMs = settings.TimeoutMs;
+        bool queryRules = tab.Columns.Any(c => (c.Visible || c.Id == tab.SortColumn) && c.Field.StartsWith("Rule."));
+        bool querySucceeded = false;
+        if (ServerFilter.Tokens(countries).Length > 0) ClearDetails();
         using var cancellation = new CancellationTokenSource();
         suppressDetailAutoload = false;
         queryCancellation = cancellation; busy = true; UpdateActionStates();
+        SaveSettings();
         try
         {
-            foreach (var previous in selected)
+            var plan = await Task.Run(() =>
             {
-                bool queryRules = tab.Columns.Any(c => (c.Visible || c.Id == tab.SortColumn) && c.Field.StartsWith("Rule."));
-                var row = await service.QueryAsync(previous.Endpoint, tab.AppId, settings.TimeoutMs, false, cancellation.Token, queryRules);
+                using var geo = countryLookupFactory(geoIpPath);
+                return CountryQueryPlan.Create(selected.Select(r => r.Endpoint), countries, geo, cancellation.Token);
+            }, cancellation.Token);
+            cancellation.Token.ThrowIfCancellationRequested();
+            foreach (var target in plan.Targets)
+            {
+                var previous = selected.First(r => r.Endpoint.Equals(target.Endpoint));
+                var row = await service.QueryAsync(target.Endpoint, appId, timeoutMs, false, cancellation.Token, queryRules);
                 var replacement = new ServerEntry { Endpoint = row.Endpoint, Info = row.Info, Error = row.Error,
-                    Favorite = settings.Favorites.ContainsKey(row.Address), Country = previous.Country, CachedName = previous.Name,
+                    Favorite = settings.Favorites.ContainsKey(row.Address), Country = target.Country, CachedName = previous.Name,
                     Rules = queryRules ? row.Rules : previous.Rules };
                 var rows = Rows(tab); int index = rows.FindIndex(r => r.Address == row.Address);
                 if (index >= 0) rows[index] = replacement;
             }
-            if (ReferenceEquals(active, tab)) { ApplyFilter(); StatusText.Text = $"Updated {selected.Count} selected server(s)."; }
+            querySucceeded = true;
+            if (ReferenceEquals(active, tab))
+            {
+                ApplyFilter();
+                StatusText.Text = $"Updated {plan.Targets.Count} selected server(s)."
+                    + (plan.Excluded == 0 ? "" : $" {plan.Excluded} excluded by country before querying.")
+                    + (plan.Warning is null ? "" : " " + plan.Warning);
+            }
         }
         catch (OperationCanceledException) { StatusText.Text = "Update stopped."; }
         catch (Exception ex) { StatusText.Text = ex.Message; }
         finally
         {
             queryCancellation = null; busy = false;
-            if (!cancellation.IsCancellationRequested && ReferenceEquals(active, tab)) SynchronizeDetailsSelection(force: true);
+            if (querySucceeded && !cancellation.IsCancellationRequested && ReferenceEquals(active, tab)) SynchronizeDetailsSelection(force: true);
             UpdateActionStates();
             if (ReferenceEquals(active, tab) && tab.AutoFitColumns) BestFitColumns();
         }

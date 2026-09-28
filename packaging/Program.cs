@@ -11,7 +11,7 @@ if (args.Length != 3)
 string publish = Path.GetFullPath(args[0]);
 string output = Path.GetFullPath(args[1]);
 string source = Path.GetFullPath(args[2]);
-const string release = "SteamServerBrowser-2.71.7-linux-x64";
+const string release = "SteamServerBrowser-2.71.8-linux-x64";
 Directory.CreateDirectory(output);
 byte[] elf = File.ReadAllBytes(Path.Combine(publish, "SteamServerBrowser"));
 if (elf.Length < 64 || !elf.AsSpan(0, 4).SequenceEqual(new byte[] { 0x7f, 0x45, 0x4c, 0x46 }) || elf[4] != 2 || BitConverter.ToUInt16(elf, 18) != 62)

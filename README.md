@@ -2,15 +2,15 @@
 
 Native Linux desktop port of [SteamServerBrowser](https://github.com/PredatH0r/SteamServerBrowser) 2.71, built with C#, .NET 10 and Avalonia.
 
-Current version: **2.71.7**. Target platforms: **Ubuntu 22.04/24.04 and Debian 12/13, x86_64**.
+Current version: **2.71.8**. Target platforms: **Ubuntu 22.04/24.04 and Debian 12/13, x86_64**.
 
 ## Download and run
 
 Download the Linux portable archive from this repository's Releases page, then extract it:
 
 ```sh
-tar -xzf SteamServerBrowser-2.71.7-linux-x64.tar.gz
-cd SteamServerBrowser-2.71.7-linux-x64
+tar -xzf SteamServerBrowser-2.71.8-linux-x64.tar.gz
+cd SteamServerBrowser-2.71.8-linux-x64
 ./SteamServerBrowser
 ```
 
@@ -27,7 +27,7 @@ The desktop needs X11 or XWayland, fontconfig, ICU and OpenSSL. Common desktop l
 - Live results: select a server and load its details while discovery is still running.
 - Favorites, custom server lists, multiple tabs and Windows INI import.
 - Filters for server name, map, country, tags, player count and latency.
-- Offline MMDB country lookup with bundled flag icons.
+- Offline MMDB country lookup with bundled flag icons; country filtering before server queries.
 - Custom detail/rule columns, numeric sorting, column visibility, order, width and saved sorting.
 - Best Fit for server and player columns, using complete rendered text and headers.
 - Player lists sorted by score by default; durations displayed as hours, minutes and seconds.
@@ -57,6 +57,8 @@ ${XDG_CONFIG_HOME:-$HOME/.config}/steam-server-browser/settings.json
 The API key is stored in that local configuration file. On Linux the file is created with owner-only read/write permissions. RCON passwords are not saved. Do not commit local configuration files.
 
 Country databases are not bundled. Select an existing ipinfo_lite, IP2Location or GeoLite2 MMDB file. Paths are relative to the executable directory, for example `GeoIp/ipinfo_lite.mmdb`; absolute paths from older configurations are converted on load. Unknown countries remain blank.
+
+When **Country** is set, Find Servers first retrieves the master-server address list, checks those IPs against the local MMDB database, and sends A2S information, player and rule queries only to matching countries. Nonmatching and unknown countries are excluded before querying. Update Status and selected-server updates apply the same country check to their existing addresses. A selected country requires a working MMDB database; a missing database or failed lookup stops the query with an error. Clear Country to query all countries, including unknown locations.
 
 ## Build from source
 
@@ -103,7 +105,7 @@ Country flags are already included. The optional extraction tool requires the or
 
 ## Testing and limitations
 
-The automated suite contains 41 test groups covering UDP/TCP/HTTP protocol fixtures, configuration, live selection, cancellation, column sizing, sorting and UI rendering. Network tests use local mock servers; they do not validate every public server or Linux desktop environment.
+The automated suite contains 49 test groups covering UDP/TCP/HTTP protocol fixtures, country filtering before A2S requests, configuration, live selection, cancellation, column sizing, sorting and UI rendering. Country-filter tests count UDP requests and verify that excluded servers receive none. Network tests use local mock servers; they do not validate every public server or Linux desktop environment.
 
 The port preserves the original compact arrangement, rather than reproducing DevExpress skins or floating docking. Windows key injection, global hotkeys and Steamworks IPC are not implemented. Game-specific Quake Live/Reflex/Toxikk statistics and integrations are not included. In-game auto-update pause uses best-effort Steam-process detection. RCON supports Source TCP; server lists currently use IPv4.
 

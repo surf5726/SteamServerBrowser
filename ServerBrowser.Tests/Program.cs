@@ -388,6 +388,7 @@ internal static partial class Program
         RunPersistenceRegressions(args);
         RunInteractionRegressions(args);
         RunTypographyRegressions(args);
+        RunCountryQueryRegressions();
         Console.WriteLine($"\n{passed} passed; {failed} failed.");
         return failed == 0 ? 0 : 1;
     }
@@ -477,12 +478,13 @@ internal static partial class Program
     }
     private sealed class UdpMock : IDisposable
     {
-        private readonly UdpClient udp = new(new IPEndPoint(IPAddress.Loopback, 0));
+        private readonly UdpClient udp;
         private readonly CancellationTokenSource cancellation = new();
         private readonly Task loop;
         public IPEndPoint Endpoint => (IPEndPoint)udp.Client.LocalEndPoint!;
-        public UdpMock(Func<byte[], IEnumerable<byte[]>> respond)
+        public UdpMock(Func<byte[], IEnumerable<byte[]>> respond, IPAddress? bindAddress = null)
         {
+            udp = new UdpClient(new IPEndPoint(bindAddress ?? IPAddress.Loopback, 0));
             loop = Task.Run(async () =>
             {
                 while (!cancellation.IsCancellationRequested)

@@ -3,9 +3,16 @@ using MaxMind.Db;
 
 namespace ServerBrowser.Core;
 
-public sealed class GeoIp : IDisposable
+public interface ICountryLookup : IDisposable
+{
+    bool IsAvailable { get; }
+    string Lookup(IPAddress ip);
+}
+
+public sealed class GeoIp : ICountryLookup
 {
     private readonly Reader? reader;
+    public bool IsAvailable => reader is not null;
     public GeoIp(string path) { if (!string.IsNullOrWhiteSpace(path)) reader = new Reader(ResolvePath(path)); }
     public static string ResolvePath(string path, string? appDirectory = null) =>
         Path.GetFullPath(path, appDirectory ?? AppContext.BaseDirectory);

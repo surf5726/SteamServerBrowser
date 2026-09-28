@@ -3,7 +3,7 @@
     <OutputType>WinExe</OutputType>
     <AssemblyName>SteamServerBrowser</AssemblyName>
     <ApplicationIcon>App.ico</ApplicationIcon>
-    <Version>2.71.7</Version>
+    <Version>2.71.8</Version>
     <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
   <ItemGroup>

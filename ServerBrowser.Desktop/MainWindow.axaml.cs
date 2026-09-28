@@ -21,6 +21,7 @@ public partial class MainWindow : Window
 {
     private readonly SettingsStore store;
     private readonly ServerBrowserService service = new();
+    private readonly Func<string, ICountryLookup> countryLookupFactory;
     private BrowserSettings settings;
     private readonly ObservableCollection<BrowserTab> tabItems = [];
     private readonly Dictionary<BrowserTab, List<ServerEntry>> cache = [];
@@ -37,9 +38,10 @@ public partial class MainWindow : Window
     private static readonly int[] Regions = [255, 4, 3, 0, 1, 2, 5, 6, 7];
 
     public MainWindow() : this(new SettingsStore()) { }
-    public MainWindow(SettingsStore store)
+    public MainWindow(SettingsStore store, Func<string, ICountryLookup>? countryLookupFactory = null)
     {
         this.store = store;
+        this.countryLookupFactory = countryLookupFactory ?? (path => new GeoIp(path));
         settings = store.Load();
         settings.GeoIpPath = GeoIp.RelativePath(settings.GeoIpPath);
         apiKey = settings.SteamWebApiKey.Length > 0 ? settings.SteamWebApiKey : Environment.GetEnvironmentVariable("STEAM_WEB_API_KEY") ?? "";
@@ -208,6 +210,8 @@ public partial class MainWindow : Window
         // Snapshot options so tab edits during an in-flight query cannot change its scope.
         suppressDetailAutoload = false;
         var options = JsonSerializer.Deserialize<BrowserTab>(JsonSerializer.Serialize(tab))!;
+        string geoIpPath = settings.GeoIpPath;
+        if (ServerFilter.Tokens(options.Countries).Length > 0) ClearDetails();
         var cancellation = new CancellationTokenSource();
         queryCancellation = cancellation;
         var token = cancellation.Token;
@@ -218,7 +222,7 @@ public partial class MainWindow : Window
         var working = Rows(tab);
         int total = 0, completed = 0, failures = 0;
         string? warning = null;
-        bool queryFinished = false;
+        bool queryFinished = false, querySucceeded = false;
         int flushPosted = 0;
         void Flush()
         {
@@ -274,36 +278,47 @@ public partial class MainWindow : Window
             else endpoints = oldRows.Values.Select(r => r.Endpoint).ToList();
             endpoints = endpoints.Distinct().ToList();
             if (discover && options.Source == ServerSource.Master) endpoints = endpoints.Take(options.Limit).ToList();
-            total = endpoints.Count;
             token.ThrowIfCancellationRequested();
-            using var geo = new GeoIp(settings.GeoIpPath);
+            StatusText.Text = "Checking server countries...";
+            var plan = await Task.Run(() =>
+            {
+                using var geo = countryLookupFactory(geoIpPath);
+                return CountryQueryPlan.Create(endpoints, options.Countries, geo, token);
+            }, token);
+            token.ThrowIfCancellationRequested();
+            total = plan.Targets.Count;
+            if (plan.Warning is not null) warning = string.Join(' ', new[] { warning, plan.Warning }.Where(s => s is not null));
             if (discover && options.Source == ServerSource.Master) working.Clear();
             else
             {
-                foreach (var ep in endpoints)
-                    if (!working.Any(r => r.Endpoint.Equals(ep))) working.Add(new ServerEntry { Endpoint = ep, CachedName = favorites.GetValueOrDefault(ep.ToString(), "") });
+                foreach (var target in plan.Targets)
+                    if (!working.Any(r => r.Endpoint.Equals(target.Endpoint))) working.Add(new ServerEntry
+                    {
+                        Endpoint = target.Endpoint, Country = target.Country,
+                        CachedName = favorites.GetValueOrDefault(target.Endpoint.ToString(), "")
+                    });
             }
+            if (ReferenceEquals(active, tab)) ApplyFilter();
             Progress.IsIndeterminate = false;
-            await Parallel.ForEachAsync(endpoints, new ParallelOptions { MaxDegreeOfParallelism = concurrency, CancellationToken = token }, async (ep, ct) =>
+            await Parallel.ForEachAsync(plan.Targets, new ParallelOptions { MaxDegreeOfParallelism = concurrency, CancellationToken = token }, async (target, ct) =>
             {
+                var ep = target.Endpoint;
                 bool queryRules = options.Columns.Any(c => (c.Visible || c.Id == options.SortColumn) && c.Field.StartsWith("Rule."));
                 var row = await service.QueryAsync(ep, options.AppId, timeoutMs, !string.IsNullOrWhiteSpace(options.PlayerSearch), ct, queryRules);
-                string country = "";
-                try { country = geo.Lookup(ep.Address); }
-                catch (Exception ex) { Interlocked.CompareExchange(ref warning, "Country lookup failed: " + ex.Message, null); }
                 ct.ThrowIfCancellationRequested();
                 oldRows.TryGetValue(ep.ToString(), out var old);
                 pending.Enqueue(new ServerEntry
                 {
                     Endpoint = ep, Info = row.Info, Error = row.Error, Players = row.Players, PlayersQueried = row.PlayersQueried,
                     Rules = queryRules ? row.Rules : old?.Rules ?? [],
-                    Country = country, Favorite = favorites.ContainsKey(ep.ToString()),
+                    Country = target.Country, Favorite = favorites.ContainsKey(ep.ToString()),
                     CachedName = favorites.GetValueOrDefault(ep.ToString()) ?? old?.Name ?? ""
                 });
                 if (row.Info is null) Interlocked.Increment(ref failures);
                 Interlocked.Increment(ref completed);
                 PostFlush();
             });
+            querySucceeded = true;
             Flush();
             foreach (var row in working.Where(r => settings.Favorites.ContainsKey(r.Address) && r.Info is not null))
                 settings.Favorites[row.Address] = row.Name;
@@ -311,7 +326,9 @@ public partial class MainWindow : Window
             if (ReferenceEquals(active, tab))
             {
                 ApplyFilter();
-                StatusText.Text = $"Complete: {total - failures} online, {failures} timed out." + (warning is null ? "" : " " + warning);
+                StatusText.Text = $"Complete: {total - failures} online, {failures} timed out."
+                    + (plan.Excluded == 0 ? "" : $" {plan.Excluded} excluded by country before querying.")
+                    + (warning is null ? "" : " " + warning);
                 if (AlarmBox.IsChecked == true && working.Any(r => r.Info is not null && ServerFilter.Matches(r, options)))
                     notifications?.Show(new Notification("Matching servers found", CountText.Text ?? "", NotificationType.Information));
             }
@@ -326,7 +343,7 @@ public partial class MainWindow : Window
         {
             queryFinished = true; busy = false; Progress.IsIndeterminate = false;
             if (ReferenceEquals(queryCancellation, cancellation)) queryCancellation = null;
-            if (!token.IsCancellationRequested && ReferenceEquals(active, tab)) SynchronizeDetailsSelection(force: true);
+            if (querySucceeded && !token.IsCancellationRequested && ReferenceEquals(active, tab)) SynchronizeDetailsSelection(force: true);
             cancellation.Dispose(); lastRefresh = DateTime.UtcNow;
             UpdateActionStates();
             if (ReferenceEquals(active, tab) && tab.AutoFitColumns) BestFitColumns();

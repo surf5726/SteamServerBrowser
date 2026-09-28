@@ -107,8 +107,7 @@ public static class ServerFilter
         if (!MatchText(row.Name + " " + row.Address + " " + row.Game, tab.Search)) return false;
         if (!MatchText(row.Map, tab.Map) || !MatchText(row.Info?.GameVersion ?? "", tab.Version)) return false;
         if (!string.IsNullOrWhiteSpace(tab.PlayerSearch) && !row.Players.Any(p => MatchText(p.Name, tab.PlayerSearch))) return false;
-        var countries = Tokens(tab.Countries);
-        if (countries.Length > 0 && !countries.Contains(row.Country, StringComparer.OrdinalIgnoreCase)) return false;
+        if (!CountryQueryPlan.Matches(row.Country, tab.Countries)) return false;
         var tags = Tokens(row.Tags);
         if (Tokens(tab.IncludeTags).Any(t => !tags.Contains(t, StringComparer.OrdinalIgnoreCase))) return false;
         if (Tokens(tab.ExcludeTags).Any(t => tags.Contains(t, StringComparer.OrdinalIgnoreCase))) return false;
